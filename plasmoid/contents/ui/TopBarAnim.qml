@@ -25,20 +25,11 @@ Item {
     
    //anchors.fill: parent
    function wsistalking() {
-            if(statusId.visible == true){
-            numanimtest.running = true
-            seqrun.running = false
-        }
-        else if(statusId.visible == false){
-            seqrun.running = true
-            canvasmiddlegraphics.visible = !canvasmiddlegraphics.visible
-        }
-} 
-
-    function showstatsId() {
-        canvasmiddlegraphics.opacity = 0
-        statusId.visible = true
-    }
+                console.log('here')
+                seqrun.running = true
+                canvasmiddlegraphics.visible = !canvasmiddlegraphics.visible
+                console.log('here 2')
+            } 
     
     SequentialAnimation{
         id: numanimtest
@@ -161,10 +152,10 @@ Item {
                           anchors.verticalCenter: parent.verticalCenter
                           anchors.horizontalCenter: parent.horizontalCenter
                           visible: true
-                          opacity: 0
+                          opacity: 100
 
                           property color strokeStyle:  Qt.darker(fillStyle, 1.5)
-                          property color fillStyle: Qt.darker("deepskyblue", 1.1)
+                          property color fillStyle: Qt.darker("white", 1.1)
                           property real lineWidth: 1.6
                           property bool fill: true
                           property bool stroke: false
@@ -202,12 +193,12 @@ Item {
                                   ctxside.beginPath();
                                   ctxside.moveTo( oStartx, oStarty + amplitude * Math.sin( x / period + ( i  / 5 ) ) );
                                   ctxside.lineWidth = 1;
-                                  ctxside.strokeStyle = 'steelblue';
+                                  ctxside.strokeStyle = 'white';
 
-                                  for(var Vx = oStartx; Vx < width * 0.95; Vx++) {
+                                  for(var Vx = oStartx; Vx < width * 0.75; Vx++) {
 
                                       var Vy = amplitude * Math.sin( Vx / period + ( i  / 5 + Math.floor(Math.random() * 2) + 0));
-                                      ctxside.lineTo( oStartx + Vx,  oStarty + Vy);
+                                      ctxside.lineTo( oStartx + Vx + 0.2,  oStarty + Vy);
                                   }
 
                                    ctxside.stroke();

@@ -27,7 +27,7 @@ import org.kde.plasma.extras 2.0 as PlasmaExtras
 Rectangle {
     id: suggestionsmainitem
     color: theme.backgroundColor
-    anchors.fill: parent
+    //anchors.fill: parent
     property alias suggest1: suggestiontext1.text
     property alias suggest2: suggestiontext2.text
     property alias suggest3: suggestiontext3.text
@@ -47,8 +47,9 @@ Rectangle {
         
         PlasmaCore.IconItem {
           id: suggest1imageicon  
-          anchors.left: parent.left
-          anchors.leftMargin: units.gridUnit * 0.5
+          anchors.right: suggestiontext1.left
+          anchors.rightMargin: units.gridUnit * 0.5
+          anchors.verticalCenter: parent.verticalCenter
           source: "set-language"
           width: units.gridUnit * 2
           height: units.gridUnit * 2
@@ -127,8 +128,9 @@ Rectangle {
         
         PlasmaCore.IconItem {
           id: suggest2imageicon  
-          anchors.left: parent.left
-          anchors.leftMargin: units.gridUnit * 1.3
+          anchors.right: suggestiontext2.left
+          anchors.rightMargin: units.gridUnit * 0.5
+          anchors.verticalCenter: parent.verticalCenter
           source: "gtk-stop"
           width: units.gridUnit * 2
           height: units.gridUnit * 2
@@ -202,8 +204,9 @@ Rectangle {
         
         PlasmaCore.IconItem {
           id: suggest3imageicon  
-          anchors.left: parent.left
-          anchors.leftMargin: units.gridUnit * 1.3
+          anchors.right: suggestiontext3.left
+          anchors.rightMargin: units.gridUnit * 0.5
+          anchors.verticalCenter: parent.verticalCenter
           source: "code-function"
           width: units.gridUnit * 2
           height: units.gridUnit * 2

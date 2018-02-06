@@ -44,6 +44,7 @@ Item {
     
     property var skillList: []
     property alias cbwidth: rectangle2.width
+    property alias cbheight: rectangle2.height
     property string defaultmcorestartpath: "/usr/share/plasma/plasmoids/org.kde.phone.mycroftplasmoid/contents/code/startservice.sh"
     property string defaultmcorestoppath: "/usr/share/plasma/plasmoids/org.kde.phone.mycroftplasmoid/contents/code/stopservice.sh"
     property string packagemcorestartcmd: "/usr/share/plasma/plasmoids/org.kde.phone.mycroftplasmoid/contents/code/pkgstartservice.sh"
@@ -59,38 +60,18 @@ Item {
     property var dataContent
     property alias autoCompModel: completionItems
     property alias textInput: qinput
-    
-//     Connections {
-//         target: main2
-//         onSendShowMycroft: {
-//             console.log("senttorootbydbus");
-//             plasmoid.expanded = !plasmoid.expanded
-//             tabBar.currentTab = mycroftTab
-//         }
-//         onSendShowSkills: {
-//             tabBar.currentTab = mycroftSkillsTab
-//             if(plasmoid.expanded = !plasmoid.expanded){
-//                 plasmoid.expanded
-//             }
-//         }
-//         onSendShowSkillsInstaller: {
-//             tabBar.currentTab = mycroftMSMinstTab
-//             if(plasmoid.expanded = !plasmoid.expanded){
-//                 plasmoid.expanded
-//             }
-//         }
-//     }
+    property bool intentfailure: false
+    property var geoLat
+    property var geoLong
     
     function toggleInputMethod(selection){
         switch(selection){
         case "KeyboardSetActive":
-            qinput.visible = true
-            customMicIndicator.visible = false
+            expandbartxtinput.visible = true
             keybindic.color = "green"
             break
         case "KeyboardSetDisable":
-            qinput.visible = false
-            customMicIndicator.visible = true
+            expandbartxtinput.visible = false
             keybindic.color = theme.textColor
             break
         }
@@ -222,21 +203,23 @@ Item {
     }
     
        function playwaitanim(recoginit){
-       switch(recoginit){ //"mycroft.skill.handler.start":
+       switch(recoginit){
        case "recognizer_loop:record_begin":
-               rDrawer.open()
-               animboxMain.open()
-               waitanimoutter.cstanim.visible = true
-               waitanimoutter.cstanim.running = true
+               waitanimoutter.aniRunWorking()
                break
+           case "recognizer_loop:wakeword":
+                waitanimoutter.aniRunHappy()
+                break
+           case "intent_failure":
+                waitanimoutter.aniRunError()
+                intentfailure = true
+                break
            case "recognizer_loop:audio_output_start":
-               animboxMain.close()
-               waitanimoutter.cstanim.visible = false
-               waitanimoutter.cstanim.running = false
-               break
+                break
            case "mycroft.skill.handler.complete":
-               animboxMain.close()
-               waitanimoutter.cstanim.running = false
+                delay(1500, function() {
+                        intentfailure = false;
+                    }) 
                break
        }
    }
@@ -256,6 +239,100 @@ Item {
             suggestionsBox.complete(suggestionsBox.currentItem)
         }
     }
+    
+              function fetchDashNews(){
+          var doc = new XMLHttpRequest()
+          var url = 'https://newsapi.org/v2/top-headlines?' +
+                    'country=us&' +
+                    'apiKey=a1091945307b434493258f3dd6f36698';
+           doc.open("GET", url, true);
+           doc.send();
+
+           doc.onreadystatechange = function() {
+                if (doc.readyState === XMLHttpRequest.DONE) {
+                    var req = doc.responseText;
+                    //filterDashNewsObj(req)
+                    dashLmodel.append({"iType": "DashNews", "iObj": req})
+                }
+            }
+          }
+
+          function fetchDashWeather(){
+                var doc = new XMLHttpRequest()
+                var url = 'https://api.openweathermap.org/data/2.5/weather?' +
+                'lat=' + geoLat + '&lon=' + geoLong +
+                '&APPID=7af5277aee7a659fc98322c4517d3df7';
+
+                 doc.open("GET", url, true);
+                 doc.send();
+
+              doc.onreadystatechange = function() {
+                   if (doc.readyState === XMLHttpRequest.DONE) {
+                       var req = doc.responseText;
+                       dashLmodel.append({"iType": "DashWeather", "iObj": req})
+                   }
+               }
+          }
+
+          function globalDashRun(){
+              fetchDashNews()
+              fetchDashWeather()
+              convoLmodel.append({"itemType": "DashboardType", "InputQuery": ""})
+          }
+          
+        function filterplacesObj(metadata){
+            var filteredData = JSON.parse(metadata.data);
+            var locallat = JSON.parse(metadata.locallat);
+            var locallong = JSON.parse(metadata.locallong);
+            var hereappid = metadata.appid
+            var hereappcode = metadata.appcode;
+            convoLmodel.clear()
+            placesListModel.clear()
+            for (var i = 0; i < filteredData.results.items.length; i++){
+                var itemsInPlaces = JSON.stringify(filteredData.results.items[i])
+                var fltritemsinPlc = JSON.parse(itemsInPlaces)
+                var fltrtags = getTags(filteredData.results.items[i].tags)
+                placesListModel.insert(i, {placeposition: JSON.stringify(fltritemsinPlc.position), placetitle: JSON.stringify(fltritemsinPlc.title), placedistance: JSON.stringify(fltritemsinPlc.distance), placeloc: JSON.stringify(fltritemsinPlc.vicinity), placetags: fltrtags, placelocallat: locallat, placelocallong: locallong, placeappid: hereappid, placeappcode: hereappcode})
+            }
+            convoLmodel.append({"itemType": "PlacesType", "InputQuery": ""});
+        }
+
+        function getTags(fltrTags){
+                        if(fltrTags){
+                            var tags = '';
+                            for (var i = 0; i < fltrTags.length; i++){
+                                    if(tags)
+                                        tags += ', ' + fltrTags[i].title;
+                                    else
+                                        tags += fltrTags[i].title;
+                            }
+                            return tags;
+                        }
+                        return '';
+        }
+        
+        ListModel {
+            id: placesListModel
+        }
+        
+        ListModel {
+            id: dashLmodel
+        }
+          
+        PlasmaCore.DataSource {
+            id: dataSource
+            dataEngine: "geolocation"
+            connectedSources: ["location"]
+
+            onNewData: {
+                if (sourceName == "location"){
+                geoLat = data.latitude
+                geoLong = data.longitude
+                globalDashRun()
+
+             }
+                }
+            }
 
 Timer {
            id: timer
@@ -267,7 +344,57 @@ Timer {
                timer.triggered.connect(cb);
                timer.start();
 }
+
+Rectangle {
+     anchors.top: parent.top
+     anchors.topMargin: units.gridUnit * -2.5
+     anchors.horizontalCenter: parent.horizontalCenter
+     width: units.gridUnit * 6
+     height: units.gridUnit * 5.75
+     color: theme.linkColor
+     border.width: 0.5
+     border.color: Qt.lighter(theme.backgroundColor, 1.2)
+     radius: 120
+     z: 111
+     clip: true
+     
+    CustomMicIndicator {
+            id: waitanimoutter
+            anchors.top: parent.top
+            anchors.topMargin: units.gridUnit * 2.75
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            visible: true
+            z: 115
+    }
+     
+    TopBarAnim {
+        id: midbarAnim
+        anchors.verticalCenter: waitanimoutter.verticalCenter
+        anchors.left: parent.left
+        anchors.leftMargin: units.gridUnit * 0.5
+        anchors.right: parent.right
+        anchors.rightMargin: units.gridUnit * 0.5
+        height: units.gridUnit * 3.5
+        z: 114
+        visible: true
+    }
     
+    MouseArea {
+        anchors.fill: parent
+        onClicked: {
+                var socketmessage = {};
+                socketmessage.type = "mycroft.mic.listen";
+                socketmessage.data = {};
+                socketmessage.data.utterances = [];
+                socket.sendTextMessage(JSON.stringify(socketmessage));
+        }
+        
+    }
+    
+}
+
 Rectangle {
  id: topBar
  Layout.fillWidth: true
@@ -325,6 +452,7 @@ PlasmaComponents.TabBar {
             PlasmaComponents.TabButton {
                 id: mycroftSettingsTab
                 Layout.fillHeight: true
+                anchors.right: mycroftMSMinstTab.left
                 Layout.fillWidth: true
                 iconSource: "games-config-options"
                 
@@ -337,6 +465,7 @@ PlasmaComponents.TabBar {
                 
             PlasmaComponents.TabButton {
                 id: mycroftMSMinstTab
+                anchors.right: parent.right
                 Layout.fillHeight: true
                 Layout.fillWidth: true
                 iconSource: "kmouth-phresebook-new"
@@ -404,142 +533,6 @@ PlasmaComponents.TabBar {
     }    
 }
 
-Rectangle {
-    id: topBarSecondary
-    anchors.top: topBar.bottom
-    anchors.left: parent.left
-    anchors.right: parent.right
-    color: theme.backgroundColor
-    height: units.gridUnit * 3.5
-    z: 101
-    
-        ListModel {
-        id: completionItems
-    }
-    
-    Rectangle {
-        id: keyboardactivaterect
-        color: theme.backgroundColor
-        border.width: 1
-        border.color: Qt.lighter(theme.backgroundColor, 1.2)
-        width: units.gridUnit * 2
-        height: qinput.height
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-
-        PlasmaComponents.ToolButton {
-            id: keybdImg
-            iconSource: "input-keyboard"
-            anchors.centerIn: parent
-            width: units.gridUnit * 2
-            height: units.gridUnit * 2
-        }
-
-        Rectangle {
-            id: keybindic
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 4
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: 8
-            anchors.rightMargin: 8
-            height: 2
-            color: "green"
-        }
-
-        MouseArea{
-            anchors.fill: parent
-            hoverEnabled: true
-            onEntered: {}
-            onExited: {}
-            onClicked: {
-                if(qinput.visible === false){
-                    toggleInputMethod("KeyboardSetActive")
-                    }
-                else if(qinput.visible === true){
-                    toggleInputMethod("KeyboardSetDisable")
-                    }
-                }
-            }
-        }
-    
-    PlasmaComponents.TextField {
-        id: qinput
-        anchors.left: keyboardactivaterect.right
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        anchors.right: qinputmicbx.left
-        placeholderText: i18n("Enter Query or Say 'Hey Mycroft'")
-        clearButtonShown: true
-        
-        onAccepted: {
-            var doesExist = autoAppend(autoCompModel, function(item) { return item.name === qinput.text }, qinput.text)
-            var evaluateExist = doesExist
-            if(evaluateExist === null){
-                        autoCompModel.append({"name": qinput.text});
-            }
-            suggst.visible = true;
-            var socketmessage = {};
-            socketmessage.type = "recognizer_loop:utterance";
-            socketmessage.data = {};
-            socketmessage.data.utterances = [qinput.text];
-            socket.sendTextMessage(JSON.stringify(socketmessage));
-            qinput.text = ""; 
-            }
-        
-        onTextChanged: {
-            //var terms = getTermsForSearchString(qinput.text);
-            evalAutoLogic();
-            }
-        }
-        
-    PlasmaComponents.ToolButton {
-                id: qinputmicbx
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                iconSource: "mic-on"
-                tooltip: i18n("Toggle Mic")
-                flat: true
-                width: Math.round(units.gridUnit * 2)
-                height: width
-                z: 102
-    
-                onClicked: {
-                    if (qinputmicbx.iconSource == "mic-on") {
-                        qinputmicbx.iconSource = "mic-off"
-                    }
-                    else if (qinputmicbx.iconSource == "mic-off") {
-                        qinputmicbx.iconSource = "mic-on"
-                    }
-                    muteMicrophone()
-                }    
-            }     
-    
-    CustomMicIndicator {
-        id: customMicIndicator
-        anchors.centerIn: parent
-        visible: false
-    }
-    
-    AutocompleteBox {
-        id: suggestionsBox
-        model: completionItems
-        width: parent.width
-        anchors.top: qinput.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        filter: textInput.text
-        property: "name"
-        onItemSelected: complete(item)
-
-        function complete(item) {
-            if (item !== undefined)
-                textInput.text = item.name
-        }
-    }    
-}
-
 PlasmaCore.SvgItem {
         anchors {
             left: main.left
@@ -560,7 +553,7 @@ PlasmaCore.SvgItem {
 Rectangle {
         id: root                
         anchors { 
-        top: topBarSecondary.bottom
+        top: topBar.bottom
         bottom: rectanglebottombar.top
         left: parent.left
         right: parent.right
@@ -592,7 +585,7 @@ Rectangle {
             var msgType = somestring.type;
             playwaitanim(msgType);
             qinput.focus = false;
-            
+            midbarAnim.wsistalking()
             if (msgType === "recognizer_loop:utterance") {
                 var intpost = somestring.data.utterances;
                 qinput.text = intpost.toString()
@@ -616,7 +609,12 @@ Rectangle {
             if(somestring && somestring.data && typeof somestring.data.desktop !== 'undefined' && somestring.type === "visualObject") {
                 dataContent = somestring.data.desktop
                 filtervisualObj(dataContent)
-            }            
+            }
+            
+            if(somestring && somestring.data && typeof somestring.data.desktop !== 'undefined' && somestring.type === "placesObject") {
+                dataContent = somestring.data.desktop
+                filterplacesObj(dataContent)
+            }
             
             if (msgType === "speak" && !plasmoid.expanded && notificationswitch.checked == true) {
                 var post = somestring.data.utterance;
@@ -724,6 +722,8 @@ Rectangle {
                                         case "DropImg" : return "ImgRecogType.qml"
                                         case "AskType" : return "AskMessageType.qml"
                                         case "LoaderType" : return "LoaderType.qml"
+                                        case "PlacesType" : return "PlacesType.qml"
+                                        case "DashboardType" : return "DashboardType.qml"    
                                         }
                                     property var metacontent : dataContent
                                 }
@@ -1092,7 +1092,73 @@ SourceModel {
             id: horlineSvg;
             imagePath: "widgets/line"
         }
-    }        
+    }
+    
+Item {
+    id: expandbartxtinput
+    height: units.gridUnit * 3.5
+    anchors.bottom: rectanglebottombar.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    z: 1001
+    visible: false
+            
+    Rectangle {
+        id: topBarSecondary
+        anchors.fill: parent
+        color: theme.backgroundColor
+        height: units.gridUnit * 3.5
+        z: 101
+    
+    ListModel {
+        id: completionItems
+    }
+    
+    PlasmaComponents.TextField {
+        id: qinput
+        anchors.fill: parent
+        placeholderText: i18n("Enter Query or Say 'Hey Mycroft'")
+        clearButtonShown: true
+        
+        onAccepted: {
+            var doesExist = autoAppend(autoCompModel, function(item) { return item.name === qinput.text }, qinput.text)
+            var evaluateExist = doesExist
+            if(evaluateExist === null){
+                        autoCompModel.append({"name": qinput.text});
+            }
+            suggst.visible = true;
+            var socketmessage = {};
+            socketmessage.type = "recognizer_loop:utterance";
+            socketmessage.data = {};
+            socketmessage.data.utterances = [qinput.text];
+            socket.sendTextMessage(JSON.stringify(socketmessage));
+            qinput.text = ""; 
+            }
+        
+        onTextChanged: {
+            //var terms = getTermsForSearchString(qinput.text);
+            evalAutoLogic();
+            }
+        }
+            
+    AutocompleteBox {
+        id: suggestionsBox
+        model: completionItems
+        width: parent.width
+        anchors.bottom: qinput.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        filter: textInput.text
+        property: "name"
+        onItemSelected: complete(item)
+
+        function complete(item) {
+            if (item !== undefined)
+                textInput.text = item.name
+            }
+        }    
+    }    
+}
                        
                 
 Item {
@@ -1102,24 +1168,7 @@ Item {
     anchors.right: main.right
     anchors.bottom: main.bottom
     z: 110
-    
-    Drawer {
-         id: animboxMain
-         width: parent.width
-         height: units.gridUnit * 4
-         visible: false
-         y: rectanglebottombar.y - units.gridUnit * 1
-         z: 1001
-    
-     CustomIndicator {
-              id: waitanimoutter
-              height: units.gridUnit * 2
-              width: units.gridUnit * 2
-              anchors.verticalCenter: parent.verticalCenter
-              anchors.horizontalCenter: parent.horizontalCenter
-              }
-          }
-        
+            
     Rectangle {
         id: suggestionbottombox
         anchors.top: parent.top
@@ -1127,10 +1176,98 @@ Item {
         anchors.right: parent.right
         anchors.left: parent.left
         color: theme.backgroundColor
+        
+        Rectangle {
+            id: keyboardactivaterect
+            color: theme.backgroundColor
+            border.width: 1
+            border.color: Qt.lighter(theme.backgroundColor, 1.2)
+            width: units.gridUnit * 2
+            height: qinput.height
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+
+        PlasmaCore.IconItem {
+            id: keybdImg
+            source: "input-keyboard"
+            anchors.centerIn: parent
+            width: units.gridUnit * 2
+            height: units.gridUnit * 2
+        }
+
+        Rectangle {
+            id: keybindic
+            anchors.top: keybdImg.bottom
+            anchors.topMargin: 2
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 8
+            anchors.rightMargin: 8
+            height: 2
+            color: theme.textColor
+        }
+
+        MouseArea{
+            anchors.fill: parent
+            hoverEnabled: true
+            onEntered: {}
+            onExited: {}
+            onClicked: {
+                 if(expandbartxtinput.visible === false){
+                     toggleInputMethod("KeyboardSetActive")
+                     }
+                 else if(expandbartxtinput.visible === true){
+                     toggleInputMethod("KeyboardSetDisable")
+                     }
+                }
+            }
+        }
             
         Suggestions {
             id: suggst
             visible: true;
+            anchors.left: keyboardactivaterect.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.right: voiceinputsettingrect.left
+        }
+        
+        Rectangle {
+            id: voiceinputsettingrect
+            color: theme.backgroundColor
+            border.width: 1
+            border.color: Qt.lighter(theme.backgroundColor, 1.2)
+            width: units.gridUnit * 2.5
+            height: qinput.height
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.right: parent.right
+        
+        PlasmaCore.IconItem {
+                id: qinputmicbx
+                anchors.centerIn: parent
+                source: "mic-on"
+                width: units.gridUnit * 2
+                height: units.gridUnit * 2
+                z: 102    
+            }
+            
+            MouseArea {
+                anchors.fill: parent
+                
+                onClicked: {
+                    if (qinputmicbx.source == "mic-on") {
+                        qinputmicbx.source = "mic-off"
+                    }
+                    else if (qinputmicbx.source == "mic-off") {
+                        qinputmicbx.source = "mic-on"
+                    }
+                    muteMicrophone()
+                }
+                
+            }
+            
         }
     }
 
